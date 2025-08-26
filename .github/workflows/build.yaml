@@ -4,7 +4,7 @@ on: [push, pull_request]
 
 jobs:
   ubuntu:
-    runs-on: [ubuntu-latest]
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         java: [11, 21]
@@ -13,20 +13,19 @@ jobs:
       - uses: actions/setup-java@v3
         with:
           java-version: ${{ matrix.java }}
-          distribution: 'liberica'
-      - run: sudo apt-get install nsis makeself
+          distribution: liberica
+      - run: sudo apt-get install -y nsis makeself
       - run: ant makeself
       - run: sudo out/qz-tray-*.run
       - run: /opt/qz-tray/qz-tray --version
-      - run: ant nsis
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: qz-tray-ubuntu
+          name: qz-tray-ubuntu-${{ matrix.java }}
           path: out/qz-tray-*.run
 
   macos:
-    runs-on: [macos-latest]
+    runs-on: macos-latest
     strategy:
       matrix:
         java: [11, 21]
@@ -35,26 +34,24 @@ jobs:
       - uses: actions/setup-java@v3
         with:
           java-version: ${{ matrix.java }}
-          distribution: 'liberica'
+          distribution: liberica
       - run: brew install nsis makeself
       - run: ant pkgbuild
-      - run: echo "Setting CA trust settings to 'allow' (https://github.com/actions/runner-images/issues/4519)"
+      - run: echo "Setting CA trust settings to 'allow'"
       - run: security authorizationdb read com.apple.trust-settings.admin > /tmp/trust-settings-backup.xml
       - run: sudo security authorizationdb write com.apple.trust-settings.admin allow
       - run: sudo installer -pkg out/qz-tray-*.pkg -target /
-      - run: echo "Restoring CA trust settings back to default"
+      - run: echo "Restoring CA trust settings"
       - run: sudo security authorizationdb write com.apple.trust-settings.admin < /tmp/trust-settings-backup.xml
       - run: "'/Applications/QZ Tray.app/Contents/MacOS/QZ Tray' --version"
-      - run: ant makeself
-      - run: ant nsis
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-         name: qz-tray-macos
-         path: out/qz-tray-*.pkg
+          name: qz-tray-macos-${{ matrix.java }}
+          path: out/qz-tray-*.pkg
 
   windows:
-    runs-on: [windows-latest]
+    runs-on: windows-latest
     strategy:
       matrix:
         java: [11, 21]
@@ -63,13 +60,13 @@ jobs:
       - uses: actions/setup-java@v3
         with:
           java-version: ${{ matrix.java }}
-          distribution: 'liberica'
+          distribution: liberica
       - run: choco install nsis
       - run: ant nsis
       - run: Start-Process -Wait ./out/qz-tray-*.exe -ArgumentList "/S"
-      - run: "&'C:/Program Files/QZ Tray/qz-tray.exe' --wait --version|Out-Null"
+      - run: "& 'C:/Program Files/QZ Tray/qz-tray.exe' --wait --version | Out-Null"
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: qz-tray-windows
+          name: qz-tray-windows-${{ matrix.java }}
           path: out/qz-tray-*.exe

@@ -29,9 +29,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git ant makeself
 
+      - name: Cache JavaFX SDK
+        uses: actions/cache@v4
+        with:
+          path: out/javafx-linux-${{ matrix.arch }}-21.zip
+          key: javafx-linux-${{ matrix.arch }}-21
+          restore-keys: javafx-linux-${{ matrix.arch }}-21
+
+      - name: Download JavaFX SDK
+        if: matrix.arch == 'arm64'
+        run: |
+          wget -O out/javafx-linux-${{ matrix.arch }}-21.zip https://download2.gluonhq.com/openjfx/21/openjfx-21_linux-${{ matrix.arch }}_bin-sdk.zip
+
       - name: Compile and package
         run: |
-          ant makeself -Dtarget.arch=${{ matrix.arch }}
+          ant makeself -Dtarget.arch=${{ matrix.arch }} -Djavafx.version=21 -Djavafx.sdk.path=out/javafx-linux-${{ matrix.arch }}-21.zip
 
       - name: Rename artifact
         run: |
@@ -63,9 +75,21 @@ jobs:
         run: |
           brew install git ant makeself
 
+      - name: Cache JavaFX SDK
+        uses: actions/cache@v4
+        with:
+          path: out/javafx-macos-${{ matrix.arch }}-21.zip
+          key: javafx-macos-${{ matrix.arch }}-21
+          restore-keys: javafx-macos-${{ matrix.arch }}-21
+
+      - name: Download JavaFX SDK
+        if: matrix.arch == 'arm64'
+        run: |
+          curl -o out/javafx-macos-${{ matrix.arch }}-21.zip https://download2.gluonhq.com/openjfx/21/openjfx-21_osx-${{ matrix.arch }}_bin-sdk.zip
+
       - name: Compile and package
         run: |
-          ant pkgbuild -Dtarget.arch=${{ matrix.arch }}
+          ant pkgbuild -Dtarget.arch=${{ matrix.arch }} -Djavafx.version=21 -Djavafx.sdk.path=out/javafx-macos-${{ matrix.arch }}-21.zip
 
       - name: Rename artifact
         run: |

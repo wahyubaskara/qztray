@@ -1,166 +1,75 @@
-name: Build and Release QZ Tray
+name: build
 
-on:
-  push:
-    tags:
-      - 'v*'
-  pull_request:
-    branches:
-      - '*'
+on: [push, pull_request]
 
 jobs:
-  build-ubuntu:
-    runs-on: ubuntu-latest
+  ubuntu:
+    runs-on: [ubuntu-latest]
     strategy:
       matrix:
-        arch: [x86_64, arm64]
+        java: [11, 21]
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 11
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v3
+      - uses: actions/setup-java@v3
         with:
-          java-version: '11'
-          distribution: 'adopt'
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y git ant makeself
-
-      - name: Cache JavaFX SDK
-        uses: actions/cache@v4
-        with:
-          path: out/javafx-linux-${{ matrix.arch }}-21.zip
-          key: javafx-linux-${{ matrix.arch }}-21
-          restore-keys: javafx-linux-${{ matrix.arch }}-21
-
-      - name: Download JavaFX SDK
-        if: matrix.arch == 'arm64'
-        run: |
-          wget -O out/javafx-linux-${{ matrix.arch }}-21.zip https://download2.gluonhq.com/openjfx/21/openjfx-21_linux-${{ matrix.arch }}_bin-sdk.zip
-
-      - name: Compile and package
-        run: |
-          ant makeself -Dtarget.arch=${{ matrix.arch }} -Djavafx.version=21 -Djavafx.sdk.path=out/javafx-linux-${{ matrix.arch }}-21.zip
-
-      - name: Rename artifact
-        run: |
-          VERSION=${{ github.ref_name }}
-          mv out/qz-tray-*.run out/qz-tray-${VERSION#v}-linux-${{ matrix.arch }}.run
-
-      - name: Upload artifact
+          java-version: ${{ matrix.java }}
+          distribution: 'liberica'
+      - run: sudo apt-get install nsis makeself
+      - run: ant makeself
+      - run: sudo out/qz-tray-*.run
+      - run: /opt/qz-tray/qz-tray --version
+      - run: ant nsis
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: qz-tray-linux-${{ matrix.arch }}
+          name: qz-tray-ubuntu
           path: out/qz-tray-*.run
 
-  build-macos:
-    runs-on: macos-latest
+  macos:
+    runs-on: [macos-latest]
     strategy:
       matrix:
-        arch: [x86_64, arm64]
+        java: [11, 21]
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 11
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v3
+      - uses: actions/setup-java@v3
         with:
-          java-version: '11'
-          distribution: 'adopt'
-
-      - name: Install dependencies
-        run: |
-          brew install git ant makeself
-
-      - name: Cache JavaFX SDK
-        uses: actions/cache@v4
-        with:
-          path: out/javafx-macos-${{ matrix.arch }}-21.zip
-          key: javafx-macos-${{ matrix.arch }}-21
-          restore-keys: javafx-macos-${{ matrix.arch }}-21
-
-      - name: Download JavaFX SDK
-        if: matrix.arch == 'arm64'
-        run: |
-          curl -o out/javafx-macos-${{ matrix.arch }}-21.zip https://download2.gluonhq.com/openjfx/21/openjfx-21_osx-${{ matrix.arch }}_bin-sdk.zip
-
-      - name: Compile and package
-        run: |
-          ant pkgbuild -Dtarget.arch=${{ matrix.arch }} -Djavafx.version=21 -Djavafx.sdk.path=out/javafx-macos-${{ matrix.arch }}-21.zip
-
-      - name: Rename artifact
-        run: |
-          VERSION=${{ github.ref_name }}
-          mv out/qz-tray-*.pkg out/qz-tray-${VERSION#v}-macos-${{ matrix.arch }}.pkg
-
-      - name: Upload artifact
+          java-version: ${{ matrix.java }}
+          distribution: 'liberica'
+      - run: brew install nsis makeself
+      - run: ant pkgbuild
+      - run: echo "Setting CA trust settings to 'allow' (https://github.com/actions/runner-images/issues/4519)"
+      - run: security authorizationdb read com.apple.trust-settings.admin > /tmp/trust-settings-backup.xml
+      - run: sudo security authorizationdb write com.apple.trust-settings.admin allow
+      - run: sudo installer -pkg out/qz-tray-*.pkg -target /
+      - run: echo "Restoring CA trust settings back to default"
+      - run: sudo security authorizationdb write com.apple.trust-settings.admin < /tmp/trust-settings-backup.xml
+      - run: "'/Applications/QZ Tray.app/Contents/MacOS/QZ Tray' --version"
+      - run: ant makeself
+      - run: ant nsis
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: qz-tray-macos-${{ matrix.arch }}
-          path: out/qz-tray-*.pkg
+         name: qz-tray-macos
+         path: out/qz-tray-*.pkg
 
-  build-windows:
-    runs-on: windows-latest
+  windows:
+    runs-on: [windows-latest]
     strategy:
       matrix:
-        arch: [x86_64]
+        java: [11, 21]
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 11
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v3
+      - uses: actions/setup-java@v3
         with:
-          java-version: '11'
-          distribution: 'adopt'
-
-      - name: Install dependencies
-        run: |
-          choco install -y git ant nsis
-
-      - name: Compile and package
-        run: |
-          ant nsis -Dtarget.arch=${{ matrix.arch }}
-
-      - name: Rename artifact
-        run: |
-          $VERSION = "${{ github.ref_name }}"
-          mv out/qz-tray-*.exe out/qz-tray-$($VERSION -replace '^v','')-windows-${{ matrix.arch }}.exe
-        shell: powershell
-
-      - name: Upload artifact
+          java-version: ${{ matrix.java }}
+          distribution: 'liberica'
+      - run: choco install nsis
+      - run: ant nsis
+      - run: Start-Process -Wait ./out/qz-tray-*.exe -ArgumentList "/S"
+      - run: "&'C:/Program Files/QZ Tray/qz-tray.exe' --wait --version|Out-Null"
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: qz-tray-windows-${{ matrix.arch }}
+          name: qz-tray-windows
           path: out/qz-tray-*.exe
-
-  release:
-    runs-on: ubuntu-latest
-    needs: [build-ubuntu, build-macos, build-windows]
-    if: startsWith(github.ref, 'refs/tags/v')
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Generate SHA256SUMS.txt
-        run: |
-          cd artifacts
-          find . -type f -name "qz-tray-*" -exec sha256sum {} \; > SHA256SUMS.txt
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            artifacts/**/qz-tray-*.run
-            artifacts/**/qz-tray-*.pkg
-            artifacts/**/qz-tray-*.exe
-            artifacts/**/SHA256SUMS.txt
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
